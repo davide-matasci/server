@@ -76,4 +76,12 @@ describe('CreateRevisionFromDump', () => {
     expect(revisionRepository.insert).toHaveBeenCalled()
     expect(dumpRepository.removeDump).toHaveBeenCalled()
   })
+
+  it('should remove the dump if inserting the revision throws', async () => {
+    revisionRepository.insert = jest.fn().mockRejectedValue(new Error('SQLITE_BUSY'))
+
+    await expect(createUseCase().execute({ filePath: 'foobar' })).rejects.toThrow('SQLITE_BUSY')
+
+    expect(dumpRepository.removeDump).toHaveBeenCalledWith('foobar')
+  })
 })

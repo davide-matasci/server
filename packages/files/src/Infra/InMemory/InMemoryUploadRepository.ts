@@ -35,6 +35,11 @@ export class InMemoryUploadRepository implements UploadRepositoryInterface {
     if (uploadResultsJSON) {
       uploadResults = JSON.parse(uploadResultsJSON)
     }
+    // A chunk sent again replaces its earlier result, so its size isn't counted twice in the quota.
+    uploadResults = uploadResults.filter(
+      (stringifiedResult: string) =>
+        (JSON.parse(stringifiedResult) as UploadChunkResult).chunkId !== uploadChunkResult.chunkId,
+    )
     uploadResults.unshift(JSON.stringify(uploadChunkResult))
 
     this.inMemoryUploadCacheMap.set(`${this.UPLOAD_CHUNKS_PREFIX}:${uploadId}`, JSON.stringify(uploadResults))

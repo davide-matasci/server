@@ -1919,6 +1919,13 @@ export class ContainerConfigLoader {
           container.get<DeleteSessionByToken>(TYPES.Auth_DeleteSessionByToken),
           container.get<string>(TYPES.Auth_CAPTCHA_UI_URL),
           container.get<ControllerContainerInterface>(TYPES.Auth_ControllerContainer),
+          isConfiguredForHomeServer
+            ? {
+                userRepository: container.get<UserRepositoryInterface>(TYPES.Auth_UserRepository),
+                lockRepository: container.get<LockRepositoryInterface>(TYPES.Auth_LockRepository),
+                maxLoginAttempts: container.get<number>(TYPES.Auth_MAX_LOGIN_ATTEMPTS),
+              }
+            : undefined,
         ),
       )
 
