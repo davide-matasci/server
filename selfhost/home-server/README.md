@@ -122,6 +122,25 @@ curl -fL -o /data/alpine/opt/sn/sync-diag.js \
 linux --root /data/alpine sh -c 'cd /var/lib/sn && node --require /opt/sn/.pnp.cjs /opt/sn/sync-diag.js'
 ```
 
+## Email backups and other emails
+
+The server can email encrypted backups (and its other emails: sign-in
+alerts, password changes, vault invites) through any SMTP server, for
+example your mail provider's with an app password. Fill in the `SMTP_*`
+settings in `/var/lib/sn/.env` (see `env.example`) and
+`start.sh restart`. Then in the web app: Preferences → Backups → **Email
+backups** → Daily or Weekly. A first backup is sent right away.
+
+- Scheduled backups go out at 03:00 server time (`SCHEDULED_JOBS_HOUR`):
+  daily ones every day, weekly ones on Sundays. Expired sessions are
+  cleaned up at the same time.
+- The attachment (`SN-Data-<date>.txt`) is your whole account, encrypted
+  with your password. Restore it in the app with Preferences → Backups →
+  **Import backup**. If it's split across several emails (a backup larger
+  than `EMAIL_ATTACHMENT_MAX_BYTE_SIZE`), import all the parts.
+- Sending problems are logged in `/var/lib/sn/server.log` ("Could not
+  send email"); they never fail a sign-in or a sync.
+
 ## Backups
 
 The whole state is `/data/alpine/var/lib/sn` (the SQLite database and

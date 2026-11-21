@@ -602,6 +602,7 @@ export class ContainerConfigLoader {
           : new FSItemBackupService(
               container.get(TYPES.Sync_FILE_UPLOAD_PATH),
               container.get(TYPES.Sync_ItemBackupMapper),
+              container.get(TYPES.Sync_ItemHttpMapper),
               container.get(TYPES.Sync_Logger),
             ),
       )
@@ -1136,24 +1137,24 @@ export class ContainerConfigLoader {
         container.get<ContentSizesFixRequestedEventHandler>(TYPES.Sync_ContentSizesFixRequestedEventHandler),
       ],
     ])
-    if (!isConfiguredForHomeServer) {
-      container
-        .bind<EmailBackupRequestedEventHandler>(TYPES.Sync_EmailBackupRequestedEventHandler)
-        .toConstantValue(
-          new EmailBackupRequestedEventHandler(
-            container.get<ItemRepositoryInterface>(TYPES.Sync_SQLItemRepository),
-            container.get<ItemBackupServiceInterface>(TYPES.Sync_ItemBackupService),
-            container.get<DomainEventPublisherInterface>(TYPES.Sync_DomainEventPublisher),
-            container.get<DomainEventFactoryInterface>(TYPES.Sync_DomainEventFactory),
-            container.get<number>(TYPES.Sync_EMAIL_ATTACHMENT_MAX_BYTE_SIZE),
-            container.get<ItemTransferCalculatorInterface>(TYPES.Sync_ItemTransferCalculator),
-            container.get<string>(TYPES.Sync_S3_BACKUP_BUCKET_NAME),
-            container.get<Logger>(TYPES.Sync_Logger),
-          ),
-        )
+    // In home-server mode the backup files go to the upload path (FSItemBackupService) and the home
+    // server sends the emails (packages/home-server/src/Email).
+    container
+      .bind<EmailBackupRequestedEventHandler>(TYPES.Sync_EmailBackupRequestedEventHandler)
+      .toConstantValue(
+        new EmailBackupRequestedEventHandler(
+          container.get<ItemRepositoryInterface>(TYPES.Sync_SQLItemRepository),
+          container.get<ItemBackupServiceInterface>(TYPES.Sync_ItemBackupService),
+          container.get<DomainEventPublisherInterface>(TYPES.Sync_DomainEventPublisher),
+          container.get<DomainEventFactoryInterface>(TYPES.Sync_DomainEventFactory),
+          container.get<number>(TYPES.Sync_EMAIL_ATTACHMENT_MAX_BYTE_SIZE),
+          container.get<ItemTransferCalculatorInterface>(TYPES.Sync_ItemTransferCalculator),
+          isConfiguredForHomeServer ? '' : container.get<string>(TYPES.Sync_S3_BACKUP_BUCKET_NAME),
+          container.get<Logger>(TYPES.Sync_Logger),
+        ),
+      )
 
-      eventHandlers.set('EMAIL_BACKUP_REQUESTED', container.get(TYPES.Sync_EmailBackupRequestedEventHandler))
-    }
+    eventHandlers.set('EMAIL_BACKUP_REQUESTED', container.get(TYPES.Sync_EmailBackupRequestedEventHandler))
 
     if (isConfiguredForHomeServer) {
       const directCallEventMessageHandler = new DirectCallEventMessageHandler(
