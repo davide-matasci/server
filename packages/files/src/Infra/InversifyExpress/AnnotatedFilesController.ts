@@ -188,6 +188,14 @@ export class AnnotatedFilesController extends BaseHttpController {
       return this.badRequest(result.message)
     }
 
-    return () => result.readStream.pipe(response)
+    return () => {
+      // The file can disappear between the checks above and the read (e.g. deleted meanwhile): end this
+      // download with an error instead of an unhandled stream error, which would stop the whole server.
+      result.readStream.on('error', (error) => {
+        this.logger.error(`Could not stream file: ${error.message}`)
+        response.destroy(error)
+      })
+      return result.readStream.pipe(response)
+    }
   }
 }

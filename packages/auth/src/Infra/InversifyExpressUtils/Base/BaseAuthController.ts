@@ -1,4 +1,4 @@
-import { ControllerContainerInterface } from '@standardnotes/domain-core'
+import { ControllerContainerInterface, Username } from '@standardnotes/domain-core'
 import { Request, Response } from 'express'
 import { Logger } from 'winston'
 
@@ -21,6 +21,8 @@ import { VerifyHumanInteraction } from '../../../Domain/UseCase/VerifyHumanInter
 import { CookieFactoryInterface } from '../../../Domain/Auth/Cookies/CookieFactoryInterface'
 import { SignInWithRecoveryCodes } from '../../../Domain/UseCase/SignInWithRecoveryCodes/SignInWithRecoveryCodes'
 import { DeleteSessionByToken } from '../../../Domain/UseCase/DeleteSessionByToken/DeleteSessionByToken'
+import { LockRepositoryInterface } from '../../../Domain/User/LockRepositoryInterface'
+import { UserRepositoryInterface } from '../../../Domain/User/UserRepositoryInterface'
 
 export class BaseAuthController extends BaseHttpController {
   constructor(
@@ -40,6 +42,14 @@ export class BaseAuthController extends BaseHttpController {
     protected deleteSessionByToken: DeleteSessionByToken,
     protected captchaUIUrl: string,
     protected controllerContainer?: ControllerContainerInterface,
+    // Home server: the sign-in lock that LockMiddleware applies to the annotated (server) routes.
+    // Without a captcha (CAPTCHA_UI_URL), it locks after maxLoginAttempts failures in a row, for
+    // FAILED_LOGIN_LOCKOUT seconds after the last one, instead of first asking for a captcha.
+    protected signInLock?: {
+      userRepository: UserRepositoryInterface
+      lockRepository: LockRepositoryInterface
+      maxLoginAttempts: number
+    },
   ) {
     super()
 
@@ -117,7 +127,48 @@ export class BaseAuthController extends BaseHttpController {
     return this.json(result.keyParams)
   }
 
+  /** Like LockMiddleware: refuses sign-ins to an account locked after too many failed attempts. */
+  private async isSignInLocked(request: Request): Promise<boolean> {
+    if (this.signInLock === undefined) {
+      return false
+    }
+    let identifier = request.body.email ?? request.body.username
+    const usernameOrError = Username.create(identifier, { skipValidation: true })
+    if (usernameOrError.isFailed()) {
+      return false
+    }
+    const user = await this.signInLock.userRepository.findOneByUsernameOrEmail(usernameOrError.getValue())
+    if (user !== null) {
+      identifier = user.uuid
+    }
+
+    if (await this.signInLock.lockRepository.isUserLocked(identifier)) {
+      return true
+    }
+
+    return (
+      !this.captchaUIUrl &&
+      (await this.signInLock.lockRepository.getLockCounter(identifier, 'non-captcha')) >=
+        this.signInLock.maxLoginAttempts
+    )
+  }
+
+  private signInLockedResponse(): results.JsonResult {
+    return this.json(
+      {
+        error: {
+          message: 'Too many successive login requests. Please try your request again later.',
+        },
+      },
+      423,
+    )
+  }
+
   async pkceSignIn(request: Request, response: Response): Promise<results.JsonResult> {
+    if (await this.isSignInLocked(request)) {
+      return this.signInLockedResponse()
+    }
+
     if (!request.body.email || !request.body.password || !request.body.code_verifier) {
       this.logger.debug('/auth/pkce_sign_in request missing credentials: %O', request.body)
 
@@ -145,7 +196,9 @@ export class BaseAuthController extends BaseHttpController {
     })
 
     if (!signInResult.success) {
-      if (signInResult.isNonCaptchaLimitReached) {
+      // Without CAPTCHA_UI_URL (e.g. a home server) there is no captcha to ask for; setting the header
+      // to undefined threw, so every sign-in attempt after the limit failed with a server error.
+      if (signInResult.isNonCaptchaLimitReached && this.captchaUIUrl) {
         response.setHeader('x-captcha-required', this.captchaUIUrl)
       }
 
@@ -195,6 +248,10 @@ export class BaseAuthController extends BaseHttpController {
   }
 
   async recoveryLogin(request: Request, response: Response): Promise<results.JsonResult> {
+    if (await this.isSignInLocked(request)) {
+      return this.signInLockedResponse()
+    }
+
     const signInResponse = await this.signInWithRecoveryCodes.execute({
       apiVersion: request.body.api_version,
       userAgent: <string>request.headers['user-agent'],
@@ -210,7 +267,9 @@ export class BaseAuthController extends BaseHttpController {
     if (!signInResponse.success) {
       this.logger.debug(`Failed to sign in with recovery codes: ${signInResponse.errorMessage}`)
 
-      if (signInResponse.isNonCaptchaLimitReached) {
+      // Without CAPTCHA_UI_URL (e.g. a home server) there is no captcha to ask for; setting the header
+      // to undefined threw, so every sign-in attempt after the limit failed with a server error.
+      if (signInResponse.isNonCaptchaLimitReached && this.captchaUIUrl) {
         response.setHeader('x-captcha-required', this.captchaUIUrl)
       }
 

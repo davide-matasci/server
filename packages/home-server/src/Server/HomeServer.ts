@@ -111,6 +111,7 @@ export class HomeServer implements HomeServerInterface {
       this.scheduler = new HomeServerScheduler(
         container,
         env.get('SCHEDULED_JOBS_HOUR', true) ? +env.get('SCHEDULED_JOBS_HOUR', true) : 3,
+        env.get('FILE_UPLOAD_PATH', true),
         homeServerLogger,
       )
       this.scheduler.start()

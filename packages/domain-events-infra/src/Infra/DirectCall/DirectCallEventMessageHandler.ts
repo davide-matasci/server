@@ -26,7 +26,15 @@ export class DirectCallEventMessageHandler implements DomainEventMessageHandlerI
 
     this.logger.debug(`Received event: ${messageOrEvent.type}`)
 
-    await handler.handle(messageOrEvent)
+    // Events are handled inline in the request that published them (home server). As with a queue,
+    // a failing handler must not fail that request, which has already done its work (e.g. saved items).
+    try {
+      await handler.handle(messageOrEvent)
+    } catch (error) {
+      this.logger.error(`Event handler for ${messageOrEvent.type} failed: ${(error as Error).message}`, {
+        stack: (error as Error).stack,
+      })
+    }
   }
 
   async handleError(error: Error): Promise<void> {
