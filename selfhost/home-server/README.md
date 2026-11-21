@@ -9,6 +9,7 @@ Docker stack in `../`. It runs on any Alpine (musl) Linux root, and so on
 | File | What |
 |---|---|
 | `build-bundle.sh` | builds the server from this repository into `sn-home-server-musl-<arch>.tar.gz` (run in Alpine) |
+| `update.sh` | updates an installed server to the latest release (with a database backup and automatic rollback) |
 | `boot-test.sh` | unpacks a built bundle in a fresh Alpine container and checks that it starts |
 | `start.sh` | runs Redis and the server, restarts it if it exits; `start.sh restart` after editing `.env` |
 | `env.example` | the settings, copied to `/var/lib/sn/.env` |
@@ -132,7 +133,31 @@ runs, use `linux --root /data/alpine sqlite3 /var/lib/sn/home_server.sqlite
 ## Updating
 
 Merge the change into `main` (upstream changes too: merge
-`standardnotes/server`'s `main` into this fork's). When the release is out,
-on myos: back up `/var/lib/sn`, download the latest tarball as in step 1,
-unpack it over `/opt/sn` (remove the old `/opt/sn` first), and
-`start.sh restart`. Your `.env` and data in `/var/lib/sn` stay as they are.
+`standardnotes/server`'s `main` into this fork's) and wait for the release
+(Actions → Fork Home Server bundle, ~10 minutes). Then on myos, while the
+server runs:
+
+```sh
+linux --root /data/alpine sh /opt/sn/update.sh
+```
+
+It downloads the latest release, backs up the database to
+`/var/lib/sn/backups/` (the newest three are kept), swaps in the new
+`/opt/sn` (the old one becomes `/opt/sn.old`), restarts the server and waits
+for it to answer. If it doesn't within 90 seconds, it puts the old version
+back by itself. Your `.env` and data in `/var/lib/sn` are not touched. It
+needs about 450 MB free in `/data`; `rm -rf /data/alpine/opt/sn.old` frees
+about 300 MB once you're happy with an update.
+
+- `update.sh` without a newer release does nothing; `update.sh --force`
+  reinstalls the latest one.
+- `update.sh rollback` swaps back to the previous version (run it again to
+  undo the rollback).
+
+**First time, on a server installed before `update.sh` existed** (built from
+the app repository): fetch the script once, then run it as above.
+
+```sh
+curl -fL -o /data/alpine/opt/sn/update.sh \
+  https://raw.githubusercontent.com/davide-matasci/server/main/selfhost/home-server/update.sh
+```
