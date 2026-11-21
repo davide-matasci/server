@@ -47,6 +47,7 @@ describe('AnnotatedFilesController', () => {
 
     readStream = {} as jest.Mocked<Readable>
     readStream.pipe = jest.fn().mockReturnValue(new Writable())
+    readStream.on = jest.fn().mockReturnValue(readStream)
 
     streamDownloadFile = {} as jest.Mocked<StreamDownloadFile>
     streamDownloadFile.execute = jest.fn().mockReturnValue({ success: true, readStream })
@@ -98,6 +99,22 @@ describe('AnnotatedFilesController', () => {
     })
 
     expect(result()).toBeInstanceOf(Writable)
+  })
+
+  it('should end the download instead of crashing when the file cannot be read', async () => {
+    response.locals.permittedOperation = ValetTokenOperation.Read
+    response.destroy = jest.fn()
+    request.headers['range'] = 'bytes=0-'
+
+    const result = (await createController().download(request, response)) as () => Writable
+    result()
+
+    const onError = (readStream.on as jest.Mock).mock.calls.find(([event]) => event === 'error')[1]
+    const error = new Error('ENOENT: no such file or directory')
+    onError(error)
+
+    expect(logger.error).toHaveBeenCalledWith('Could not stream file: ENOENT: no such file or directory')
+    expect(response.destroy).toHaveBeenCalledWith(error)
   })
 
   it('should not allow download on invalid operation in the valet token', async () => {
