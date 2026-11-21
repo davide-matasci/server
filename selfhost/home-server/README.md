@@ -13,7 +13,7 @@ Docker stack in `../`. It runs on any Alpine (musl) Linux root, and so on
 | `start.sh` | runs Redis and the server, restarts it if it exits; `start.sh restart` after editing `.env` |
 | `env.example` | the settings, copied to `/var/lib/sn/.env` |
 | `../../.github/workflows/fork.home-server.yml` | on every merge to `main`: builds and boot-tests the tarball for x86_64 and aarch64 and publishes it as the latest release |
-| `../../.github/workflows/fork.pr.yml` | on pull requests: builds and boot-tests the tarball |
+| `../../.github/workflows/fork.pr.yml` | on pull requests: builds and boot-tests the tarball, runs lint, unit tests and the home-server end-to-end suites |
 
 Tested on Alpine 3.24 / Node 24 (Linux kernel): register, sync a note,
 sign in from a fresh browser, registration lock, restart. On myos: Node's
