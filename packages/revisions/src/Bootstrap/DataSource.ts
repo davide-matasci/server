@@ -24,7 +24,14 @@ export class AppDataSource {
   }
 
   async initialize(): Promise<void> {
-    await this.dataSource.initialize()
+    // One read of this.dataSource: the getter builds a new, unconnected DataSource on every read.
+    const dataSource = this.dataSource
+    await dataSource.initialize()
+    if (dataSource.options.type === 'sqlite') {
+      // Keep SQLite's temporary files in memory: where they can't be created on disk (myos's
+      // Linux layer), any query that spills to one fails with SQLITE_IOERR.
+      await dataSource.query('PRAGMA temp_store = MEMORY')
+    }
   }
 
   get dataSource(): DataSource {

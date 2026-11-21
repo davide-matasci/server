@@ -1,0 +1,59 @@
+name: Fork Home Server bundle
+
+# Personal-fork build: packages the home server (Node.js + SQLite, see
+# selfhost/home-server/) for an Alpine (musl) root, such as myos's Linux
+# layer, and publishes it as a GitHub release of this repository. The newest
+# build is always at releases/latest/download/sn-home-server-musl-<arch>.tar.gz.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fork-home-server-bundle
+  cancel-in-progress: false
+
+jobs:
+  bundle:
+    # Never runs in the upstream repository.
+    if: github.repository != 'standardnotes/server'
+    strategy:
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build in Alpine
+        run: |
+          docker run --rm -v "$PWD:/repo" alpine:3 sh /repo/selfhost/home-server/build-bundle.sh /repo/out
+      - name: Boot test
+        run: sh selfhost/home-server/boot-test.sh out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bundle-${{ matrix.runner }}
+          path: out/*.tar.gz
+
+  release:
+    needs: bundle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          tag="home-server-${GITHUB_SHA:0:7}"
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --latest \
+            --title "Home server ${GITHUB_SHA:0:7}" \
+            --notes "Built from ${GITHUB_SHA} for Alpine/musl. Setup and updating: selfhost/home-server/README.md" \
+            --target "$GITHUB_SHA"
+          gh release upload "$tag" out/*.tar.gz --clobber

@@ -1,0 +1,58 @@
+name: Fork PR
+
+# Personal-fork checks for pull requests:
+# - builds the home-server bundle the way a release does and boots it;
+# - build, lint and unit tests of the whole repository;
+# - upstream's end-to-end suites against the home server (SQLite and MySQL).
+# Upstream's own "Pull Request" and "Publish Packages" workflows are meant for
+# standardnotes/server (secrets, Docker Hub, npm, the Docker setup) and should
+# stay disabled in this fork.
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: fork-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  bundle:
+    if: github.repository != 'standardnotes/server'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build in Alpine
+        run: |
+          docker run --rm -v "$PWD:/repo" alpine:3 sh /repo/selfhost/home-server/build-bundle.sh /repo/out
+      - name: Boot test
+        run: sh selfhost/home-server/boot-test.sh out
+
+  test:
+    if: github.repository != 'standardnotes/server'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+      - run: yarn install --immutable
+      - run: yarn build
+      - run: yarn lint
+      - run: yarn test
+
+  e2e-base:
+    if: github.repository != 'standardnotes/server'
+    name: E2E Base Suite
+    uses: ./.github/workflows/e2e-home-server.yml
+    with:
+      suite: base
+
+  e2e-vaults:
+    if: github.repository != 'standardnotes/server'
+    name: E2E Vaults Suite
+    uses: ./.github/workflows/e2e-home-server.yml
+    with:
+      suite: vaults
