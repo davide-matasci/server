@@ -6705,6 +6705,7 @@ const RAW_RUNTIME_STATE =
           ["@types/cookie-parser", "npm:1.4.6"],\
           ["@types/cors", "npm:2.8.13"],\
           ["@types/express", "npm:4.17.17"],\
+          ["@types/nodemailer", "npm:6.4.17"],\
           ["cookie-parser", "npm:1.4.6"],\
           ["cors", "npm:2.8.5"],\
           ["dotenv", "npm:16.1.3"],\
@@ -6713,6 +6714,7 @@ const RAW_RUNTIME_STATE =
           ["helmet", "npm:7.0.0"],\
           ["inversify", "npm:6.0.1"],\
           ["inversify-express-utils", "npm:6.4.3"],\
+          ["nodemailer", "npm:6.9.16"],\
           ["reflect-metadata", "npm:0.2.1"],\
           ["typescript", "patch:typescript@npm%3A5.0.4#optional!builtin<compat/typescript>::version=5.0.4&hash=b5f058"],\
           ["winston", "npm:3.9.0"]\
@@ -7468,6 +7470,16 @@ const RAW_RUNTIME_STATE =
         "packageLocation": "./.yarn/cache/@types-node-npm-20.5.7-b5e80f1922-4571c455d1.zip/node_modules/@types/node/",\
         "packageDependencies": [\
           ["@types/node", "npm:20.5.7"]\
+        ],\
+        "linkType": "HARD"\
+      }]\
+    ]],\
+    ["@types/nodemailer", [\
+      ["npm:6.4.17", {\
+        "packageLocation": "./.yarn/cache/@types-nodemailer-npm-6.4.17-90a9dca98b-bd090c9a81.zip/node_modules/@types/nodemailer/",\
+        "packageDependencies": [\
+          ["@types/nodemailer", "npm:6.4.17"],\
+          ["@types/node", "npm:20.2.5"]\
         ],\
         "linkType": "HARD"\
       }]\
@@ -14188,6 +14200,15 @@ const RAW_RUNTIME_STATE =
         "packageLocation": "./.yarn/cache/node-releases-npm-2.0.12-888ed1398a-5b376582d1.zip/node_modules/node-releases/",\
         "packageDependencies": [\
           ["node-releases", "npm:2.0.12"]\
+        ],\
+        "linkType": "HARD"\
+      }]\
+    ]],\
+    ["nodemailer", [\
+      ["npm:6.9.16", {\
+        "packageLocation": "./.yarn/cache/nodemailer-npm-6.9.16-8322b11291-f131888d31.zip/node_modules/nodemailer/",\
+        "packageDependencies": [\
+          ["nodemailer", "npm:6.9.16"]\
         ],\
         "linkType": "HARD"\
       }]\

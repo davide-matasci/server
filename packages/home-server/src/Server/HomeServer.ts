@@ -22,10 +22,13 @@ const robots = require('express-robots-txt')
 import { Env } from '../Bootstrap/Env'
 import { HomeServerInterface } from './HomeServerInterface'
 import { HomeServerConfiguration } from './HomeServerConfiguration'
+import { SmtpEmailSender } from '../Email/SmtpEmailSender'
+import { HomeServerScheduler } from '../Scheduler/HomeServerScheduler'
 
 export class HomeServer implements HomeServerInterface {
   private serverInstance: http.Server | undefined
   private authService: AuthServiceInterface | undefined
+  private scheduler: HomeServerScheduler | undefined
   private logStream: PassThrough | undefined
   private readonly loggerNames = [
     'auth-server',
@@ -93,6 +96,24 @@ export class HomeServer implements HomeServerInterface {
           environmentOverrides,
         })) as Container,
       )
+
+      const homeServerLogger = winston.loggers.get('home-server')
+      const emailSender = SmtpEmailSender.fromEnvironment(
+        (key) => env.get(key, true) || undefined,
+        `${env.get('FILE_UPLOAD_PATH', true)}/backups`,
+        homeServerLogger,
+      )
+      if (emailSender) {
+        directCallDomainEventPublisher.register(emailSender)
+      } else {
+        homeServerLogger.info('SMTP_HOST is not set: emails (including email backups) are not sent')
+      }
+      this.scheduler = new HomeServerScheduler(
+        container,
+        env.get('SCHEDULED_JOBS_HOUR', true) ? +env.get('SCHEDULED_JOBS_HOUR', true) : 3,
+        homeServerLogger,
+      )
+      this.scheduler.start()
 
       const server = new InversifyExpressServer(container)
 
@@ -279,6 +300,9 @@ export class HomeServer implements HomeServerInterface {
       if (this.logStream) {
         this.logStream.end()
       }
+
+      this.scheduler?.stop()
+      this.scheduler = undefined
 
       this.serverInstance.close()
       this.serverInstance.unref()
