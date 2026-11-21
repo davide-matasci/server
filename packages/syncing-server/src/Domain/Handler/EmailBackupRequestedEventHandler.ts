@@ -56,6 +56,20 @@ export class EmailBackupRequestedEventHandler implements DomainEventHandlerInter
       userUuid,
     )
 
+    // A backup split across several emails gets the account's items keys in every part, so each
+    // part can be imported (decrypted) on its own. The bundles are already sized to fit an email,
+    // so they aren't split again (a bundle can exceed the limit by its last item, as before).
+    const itemsKeys =
+      itemUuidBundles.length > 1
+        ? await itemRepository.findAll({
+            userUuid: event.payload.userUuid,
+            contentType: 'SN|ItemsKey',
+            deleted: false,
+            sortBy: 'updated_at_timestamp',
+            sortOrder: 'ASC',
+          })
+        : []
+
     const backupFileNames: string[] = []
     for (const itemUuidBundle of itemUuidBundles) {
       const items = await itemRepository.findAll({
@@ -63,11 +77,13 @@ export class EmailBackupRequestedEventHandler implements DomainEventHandlerInter
         sortBy: 'updated_at_timestamp',
         sortOrder: 'ASC',
       })
+      const bundleUuids = new Set(itemUuidBundle)
+      const missingItemsKeys = itemsKeys.filter((itemsKey) => !bundleUuids.has(itemsKey.uuid.value))
 
       const bundleBackupFileNames = await this.itemBackupService.backup(
-        items,
+        [...missingItemsKeys, ...items],
         event.payload.keyParams,
-        this.emailAttachmentMaxByteSize,
+        itemUuidBundles.length > 1 ? undefined : this.emailAttachmentMaxByteSize,
       )
 
       backupFileNames.push(...bundleBackupFileNames)
