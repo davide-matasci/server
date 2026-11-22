@@ -50,6 +50,7 @@ import { DuplicateItemSyncedEventHandler } from '../Domain/Handler/DuplicateItem
 import { EmailBackupRequestedEventHandler } from '../Domain/Handler/EmailBackupRequestedEventHandler'
 import { ItemRevisionCreationRequestedEventHandler } from '../Domain/Handler/ItemRevisionCreationRequestedEventHandler'
 import { ItemBackupServiceInterface } from '../Domain/Item/ItemBackupServiceInterface'
+import { SerializedSyncItems } from '../Infra/Sync/SerializedSyncItems'
 import { FSItemBackupService } from '../Infra/FS/FSItemBackupService'
 import { S3ItemBackupService } from '../Infra/S3/S3ItemBackupService'
 import {
@@ -1193,7 +1194,8 @@ export class ContainerConfigLoader {
         .toConstantValue(
           new BaseItemsController(
             container.get<CheckForTrafficAbuse>(TYPES.Sync_CheckForTrafficAbuse),
-            container.get<SyncItems>(TYPES.Sync_SyncItems),
+            // One sync at a time per user: overlapping ones lost edits instead of reporting conflicts
+            new SerializedSyncItems(container.get<SyncItems>(TYPES.Sync_SyncItems)),
             container.get<CheckIntegrity>(TYPES.Sync_CheckIntegrity),
             container.get<GetItem>(TYPES.Sync_GetItem),
             container.get<MapperInterface<Item, ItemHttpRepresentation>>(TYPES.Sync_ItemHttpMapper),
