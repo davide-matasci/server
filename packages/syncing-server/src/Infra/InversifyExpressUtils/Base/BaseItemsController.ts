@@ -19,7 +19,7 @@ import { ResponseLocals } from '../ResponseLocals'
 export class BaseItemsController extends BaseHttpController {
   constructor(
     protected checkForTrafficAbuse: CheckForTrafficAbuse,
-    protected syncItems: SyncItems,
+    protected syncItems: Pick<SyncItems, 'execute'>,
     protected checkIntegrity: CheckIntegrity,
     protected getItem: GetItem,
     protected itemHttpMapper: MapperInterface<Item, ItemHttpRepresentation>,
